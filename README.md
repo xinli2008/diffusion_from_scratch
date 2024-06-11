@@ -1,1 +1,1 @@
-# diffusion_from_scratch
+## diffusion_from_scratch
