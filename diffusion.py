@@ -19,8 +19,10 @@ def forward_diffusion(batch_x, batch_t):
     """
     # 为每张图片生成第t个时刻的高斯噪声, torch.randn可以生成符合标准正态分布的数据。
     batch_noise_t = torch.randn_like(batch_x) 
+    
     # reshape
     batch_alpha_cum_product = alpha_cum_product.to(device)[batch_t].view(batch_x.shape[0], 1, 1, 1)
+    
     # 利用diffusion前向传播中的X_t公式, 直接计算x0在t时刻加上噪声后得到的结果
     # Q: 这里为什么可以相乘呢?
     # A:在计算 torch.sqrt(batch_alpha_cum_product) * batch_x 时：batch_alpha_cum_product 会广播为 [b, c, w, h]，与 batch_x 的形状相同。

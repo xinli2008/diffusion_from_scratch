@@ -4,13 +4,13 @@
 Welcome to the **Diffusion_from_scratch** repository! This project is a reproduction of the Stable Diffusion DDPM model based on the MNIST handwritten digit dataset. It can take input guiding digits and generate images corresponding to those digits.
 
 ## preliminary
-- **diffusion forward process**
+- **扩散模型的前向传播过程**
 
-![diffusion forward process](diffusion-forward.png)
+![diffusion forward process](./assets/diffusion-forward.png)
 
-- **diffusion sampling process**
+- **扩散模型的采样过程**
 
-![diffusion sampling process](diffusion-sampling.png)
+![diffusion sampling process](./assets/diffusion-sampling.png)
 ## Contributing
 
 Contributions are highly appreciated! If you have improvements, bug fixes, or new models to add, please fork the repository and submit a pull request. For major changes, please open an issue first to discuss what you would like to change.
