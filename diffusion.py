@@ -1,6 +1,6 @@
 import torch
 from config import *
-from dataset import train_dataet, tensor_to_pil
+from dataset import train_dataset, tensor_to_pil
 from matplotlib import pyplot as plt
 
 # diffusion的前向传播中需要的参数
@@ -31,7 +31,7 @@ def forward_diffusion(batch_x, batch_t):
 
 if __name__ == "__main__":
     # [2, 1, 48, 48]
-    batch_x = torch.stack((train_dataet[0][0], train_dataet[9][0]), dim = 0).to(device)
+    batch_x = torch.stack((train_dataset[0][0], train_dataset[9][0]), dim = 0).to(device)
 
     # 加噪前的样子
     input_image_0 = tensor_to_pil(batch_x[0])
@@ -50,6 +50,6 @@ if __name__ == "__main__":
 
     # 加噪后的样子
     output_image_0 = tensor_to_pil((batch_x_t[0]+1)/2)
-    output_image_1 = tensor_to_pil((batch_x_t[1]+1)/2)
+    output_image_1 = tensor_to_pil((batch_noise_t[0]+1)/2)
     output_image_0.save("/mnt/diffusion_from_scratch/saved_debug_images/output_image_0.jpg")
     output_image_1.save("/mnt/diffusion_from_scratch/saved_debug_images/output_image_1.jpg")

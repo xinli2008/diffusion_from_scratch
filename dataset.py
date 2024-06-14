@@ -19,7 +19,7 @@ tensor_to_pil = transforms.Compose([
     transforms.ToPILImage(),
 ])
 
-train_dataet = torchvision.datasets.MNIST(root = "./", train = True, download = True, transform = pil_to_tensor)
+train_dataset = torchvision.datasets.MNIST(root = "./", train = True, download = True, transform = pil_to_tensor)
 
 if __name__ == "__main__":
     image_tensor, label = train_dataet[0]
