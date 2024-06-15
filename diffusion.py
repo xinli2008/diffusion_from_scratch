@@ -10,6 +10,8 @@ alpha = 1 - betas
 # 累乘的含义:
 # 给定一个序列[a1, a2, a3, ..., an], 累乘的结果应该是: [a1, a1*a2, a1*a2*a3, ....]
 alpha_cum_product = torch.cumprod(alpha, dim = 0)  
+alphas_cumprod_prev=torch.cat((torch.tensor([1.0]),alpha_cum_product[:-1]),dim=-1) # alpha_t-1累乘 (T,),  [1,a1,a1*a2,a1*a2*a3,.....]
+variance=(1-alpha)*(1-alphas_cumprod_prev)/(1-alpha_cum_product)  # denoise用的方差   (T,)
 
 def forward_diffusion(batch_x, batch_t):
     r"""

@@ -1,9 +1,10 @@
 # Diffusion_from_scratch
 
 ## Introduction
-Welcome to the **Diffusion_from_scratch** repository! This project is a reproduction of the Stable Diffusion DDPM model based on the MNIST handwritten digit dataset. It can take input guiding digits and generate images corresponding to those digits.
 
-## preliminary
+从0到1手写基于mnist手写数字数据集的stable diffusion模型复现
+
+## Preliminary
 - **扩散模型的前向传播过程**
 
 ![diffusion forward process](./assets/diffusion-forward.png)
@@ -11,22 +12,20 @@ Welcome to the **Diffusion_from_scratch** repository! This project is a reproduc
 - **扩散模型的采样过程**
 
 ![diffusion sampling process](./assets/diffusion-sampling.png)
-## Contributing
 
-Contributions are highly appreciated! If you have improvements, bug fixes, or new models to add, please fork the repository and submit a pull request. For major changes, please open an issue first to discuss what you would like to change.
+## Result
 
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/YourFeature`)
-3. Commit your Changes (`git commit -m 'Add some YourFeature'`)
-4. Push to the Branch (`git push origin feature/YourFeature`)
-5. Open a Pull Request
+- **采样图片**
 
-## License
+![采样图片](./assets/final_combined_image.png)
 
-Distributed under the MIT License. See `LICENSE` for more information.
+- **loss**
+
+![training loss](./assets/diffusion-loss.png)
 
 ## Acknowledgements
 
-- [PyTorch](https://pytorch.org/) - The deep learning framework used in this repository.
-- [Pytorch-diffusion](https://github.com/owenliang/pytorch-diffusion) - 基于mnist手写数字数据集的stable diffusion模型复现
+- [Pytorch-diffusion](https://github.com/owenliang/pytorch-diffusion)
+- [Stable Diffusion 原理介绍与源码分析](https://blog.csdn.net/Eric_1993/article/details/129600524?spm=1001.2014.3001.5501)
+- [扩散模型(Diffusion Model)详解：直观理解、数学原理、PyTorch 实现](https://zhouyifan.net/2023/07/07/20230330-diffusion-model/)
 

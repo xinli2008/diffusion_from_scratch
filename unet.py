@@ -53,10 +53,20 @@ class UNet(nn.Module):
         self.output=nn.Conv2d(channels[1],img_channel,kernel_size=1,stride=1,padding=0)
         
     def forward(self,x,t):
+        """
+        Perform the unet forward process
+        结合图像特征以及时间特征来预测图像上的噪声。
+        Args:
+            x(torch.Tensor): [b, c, h, w]
+            t(torch.Tensor): [b]
+        Returns:
+            torch.Tensor: [b, c, h, w]
+        """
         # time做embedding
-        t_emb=self.time_emb(t)
+        t_emb=self.time_emb(t)  # [b] -> [b, time_embedding_size]
         
         # encoder阶段
+        # 每一次encode, 先利用conv来变化channel, 在利用maxpool来变化height和width
         residual=[]
         for i,conv in enumerate(self.enc_convs):
             x=conv(x,t_emb)
@@ -74,7 +84,7 @@ class UNet(nn.Module):
 if __name__=='__main__':
 
     # 从数据集里面拿数据, 拿batch张图片, [c, h, w] -> [b, c, h, w]
-    batch_x=torch.stack((train_dataset[0][0],train_dataset[1][0]),dim=0).to(device)
+    batch_x=torch.stack((train_dataset[0][0], train_dataset[1][0]) , dim=0).to(device)
     
     # [0, 1] -> [-1, 1]
     batch_x=batch_x*2-1 
@@ -82,9 +92,9 @@ if __name__=='__main__':
     # 随机生成timestep, [0, 1000)
     batch_t=torch.randint(0,timestep,size=(batch_x.size(0),)).to(device)
     
-    # 将x0和t传入diffusion的forward中, 利用x_t=....来得到加噪后的图片;
-    #  这里的batch_noise_t是加入噪声的多少, 训练的时候用作label。
-    batch_x_t,batch_noise_t=forward_diffusion(batch_x,batch_t)
+    # 将x0和t传入diffusion的forward中, 利用前向传播的公式x_t=....来得到加噪后的图片;
+    # 这里的batch_noise_t是加入噪声的多少, 训练的时候用作label。
+    batch_x_t,batch_noise_t = forward_diffusion(batch_x , batch_t)
 
     print('batch_x_t:',batch_x_t.size())
     print('batch_noise_t:',batch_noise_t.size())
