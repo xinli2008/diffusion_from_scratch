@@ -1,7 +1,6 @@
 import torch 
 from config import *
 from diffusion import *
-import matplotlib.pyplot as plt 
 from dataset import tensor_to_pil
 from unet import UNet
 from PIL import Image
