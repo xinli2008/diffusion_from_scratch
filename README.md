@@ -2,7 +2,9 @@
 
 ## Introduction
 
-从0到1手写基于mnist手写数字数据集的stable diffusion模型复现
+从0到1手写基于mnist手写数字数据集的diffusion模型复现
+
+注意: 从采样图片中可以看到, 目前图片生成的结果不可控, 非stable diffusion
 
 ## Preliminary
 - **扩散模型的前向传播过程**
