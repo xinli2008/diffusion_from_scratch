@@ -23,6 +23,11 @@
 
 ![training loss](./assets/diffusion-loss.png)
 
+
+## TODO
+
+引入cross-attention来将cls-embedding放入unet中, 来实现可控图像生成, 即stable diffusion
+
 ## Acknowledgements
 
 - [Pytorch-diffusion](https://github.com/owenliang/pytorch-diffusion)
