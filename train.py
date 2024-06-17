@@ -40,15 +40,20 @@ def train_one_epoch(model, dataloader, optimizer, loss_fn, epoch, device, writer
     model.train()
     epoch_loss = 0
 
-    for step, (batch_x, _) in enumerate(dataloader):
+    for step, (batch_x, batch_cls) in enumerate(dataloader):
         batch_x = batch_x.to(device) * 2 - 1
+
+        # timestep
         batch_t = torch.randint(low=0, high=timestep, size=(batch_x.shape[0],)).to(device)
+
+        # classification information
+        batch_cls = batch_cls.to(device)
 
         # 前向扩散过程
         batch_x_t, batch_noise_t = forward_diffusion(batch_x, batch_t)
 
         # 预测
-        batch_predict_t = model(batch_x_t, batch_t)
+        batch_predict_t = model(batch_x_t, batch_t, batch_cls)
 
         # 计算损失
         loss = loss_fn(batch_predict_t, batch_noise_t)
@@ -84,7 +89,7 @@ if __name__ == "__main__":
         print(f"End training at epoch {epoch}, Average Loss = {avg_loss:.4f}")
 
         # 保存模型
-        if epoch % 10 == 0:
+        if epoch % 50 == 0:
             model_save_path = os.path.join('models', f"model_epoch_{epoch}.pt")
             torch.save(model.state_dict(), model_save_path)
             print(f"Model saved to {model_save_path}")

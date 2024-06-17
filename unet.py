@@ -7,7 +7,7 @@ from time_position_emb import TimePositionEmbedding
 from conv_block import ConvBlock
 
 class UNet(nn.Module):
-    def __init__(self,img_channel,channels=[64, 128, 256, 512, 1024],time_emb_size=256):
+    def __init__(self, img_channel, channels=[64, 128, 256, 512, 1024], time_emb_size=256, query_size = 16, value_size = 16, cls_embedding_size = 32):
         super().__init__()
 
         channels=[img_channel]+channels
@@ -19,10 +19,13 @@ class UNet(nn.Module):
             nn.ReLU(),
         )
 
+        # cls转embedding
+        self.cls_embedding = nn.Embedding(10, cls_embedding_size)
+
         # 每个encoder conv block增加一倍通道数
         self.enc_convs=nn.ModuleList()
         for i in range(len(channels)-1):
-            self.enc_convs.append(ConvBlock(channels[i],channels[i+1],time_emb_size))
+            self.enc_convs.append(ConvBlock(channels[i],channels[i+1],time_emb_size, query_size, value_size, cls_embedding_size))
         
         # 每个encoder conv后马上缩小一倍图像尺寸,最后一个conv后不缩小
         self.maxpools=nn.ModuleList()
@@ -47,29 +50,33 @@ class UNet(nn.Module):
         # 每个decoder conv block减少一倍通道数
         self.dec_convs=nn.ModuleList()
         for i in range(len(channels)-2):
-            self.dec_convs.append(ConvBlock(channels[-i-1],channels[-i-2],time_emb_size))   # 残差结构
+            self.dec_convs.append(ConvBlock(channels[-i-1],channels[-i-2],time_emb_size, query_size, value_size, cls_embedding_size))   # 残差结构
 
         # 还原通道数,尺寸不变
         self.output=nn.Conv2d(channels[1],img_channel,kernel_size=1,stride=1,padding=0)
         
-    def forward(self,x,t):
+    def forward(self,x,t,cls):
         """
         Perform the unet forward process
         结合图像特征以及时间特征来预测图像上的噪声。
         Args:
             x(torch.Tensor): [b, c, h, w]
             t(torch.Tensor): [b]
+            cls(torch.Tensor): [b]
         Returns:
             torch.Tensor: [b, c, h, w]
         """
         # time做embedding
         t_emb=self.time_emb(t)  # [b] -> [b, time_embedding_size]
         
+        # cls做embedding
+        cls_embedding = self.cls_embedding(cls)  # [b] -> [b, cls_embedding_size]
+
         # encoder阶段
         # 每一次encode, 先利用conv来变化channel, 在利用maxpool来变化height和width
         residual=[]
         for i,conv in enumerate(self.enc_convs):
-            x=conv(x,t_emb)
+            x=conv(x,t_emb, cls_embedding)
             if i!=len(self.enc_convs)-1:
                 residual.append(x)
                 x=self.maxpools[i](x)
@@ -78,7 +85,7 @@ class UNet(nn.Module):
         for i,deconv in enumerate(self.deconvs):
             x=deconv(x)
             residual_x=residual.pop(-1)
-            x=self.dec_convs[i](torch.cat((residual_x,x),dim=1),t_emb)    # 残差用于纵深channel维
+            x=self.dec_convs[i](torch.cat((residual_x,x),dim=1),t_emb, cls_embedding)    # 残差用于纵深channel维
         return self.output(x) # 还原通道数
         
 if __name__=='__main__':
@@ -92,6 +99,9 @@ if __name__=='__main__':
     # 随机生成timestep, [0, 1000)
     batch_t=torch.randint(0,timestep,size=(batch_x.size(0),)).to(device)
     
+    # 随机生成cls, [0, 10)
+    batch_cls = torch.tensor([train_dataset[0][1], train_dataset[1][1]], dtype = torch.long).to(device)
+
     # 将x0和t传入diffusion的forward中, 利用前向传播的公式x_t=....来得到加噪后的图片;
     # 这里的batch_noise_t是加入噪声的多少, 训练的时候用作label。
     batch_x_t,batch_noise_t = forward_diffusion(batch_x , batch_t)
@@ -101,6 +111,6 @@ if __name__=='__main__':
 
     # 将加入的噪声以及timestep放入unet(或其他backbone)中进行噪声的预测
     unet=UNet(batch_x_t.size(1)).to(device)
-    batch_predict_noise_t=unet(batch_x_t,batch_t)
+    batch_predict_noise_t=unet(batch_x_t,batch_t, batch_cls)
     
-    print('batch_predict_noise_t:',batch_predict_noise_t.size())
+    print('batch_predict_noise_t:', batch_predict_noise_t.size())

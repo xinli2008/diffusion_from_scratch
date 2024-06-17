@@ -1,7 +1,8 @@
 from torch import nn
+from cross_attention import CrossAttention
 
 class ConvBlock(nn.Module):
-    def __init__(self, in_channel, out_channel, time_embedding_size):
+    def __init__(self, in_channel, out_channel, time_embedding_size, query_size, value_size, cls_embedding_size):
         super(ConvBlock, self).__init__()
 
         self.sequence1 = nn.Sequential(
@@ -22,13 +23,20 @@ class ConvBlock(nn.Module):
             nn.ReLU()
         )
 
-    def forward(self, hidden_states, time_embedding):
+        # 加入了cross-attention, 将cls-embedding信息引入unet中, 不改变图像形状和通道数目
+        self.cross_attn = CrossAttention(channel = out_channel, query_size = query_size, value_size = value_size, cls_embedding_size = cls_embedding_size)
+
+    def forward(self, hidden_states, time_embedding, cls_embedding):
         r"""
         Args:
             hidden_states:  [b, c, h, w]
-            time_embedding: [b,time_embedding_size]
+            time_embedding: [b, time_embedding_size]
+            cls_embedding:  [b, cls_embedding_size]
         """
         hidden_states = self.sequence1(hidden_states) # [b, output_channels, h, w]
         time_embedding = self.relu(self.time_embedding_linear(time_embedding).view(hidden_states.shape[0], hidden_states.shape[1], 1, 1)) # [b, output_channels, 1, 1]
         # hidden_states + time_embedding会调用广播机制, [b, output_channels, h, w] -> [b, output_channels, h, w]
-        return self.sequence2(hidden_states + time_embedding)  
+        hidden_states = self.sequence2(hidden_states + time_embedding)  
+        # cross-attention
+        hidden_states = self.cross_attn(hidden_states, cls_embedding)
+        return hidden_states

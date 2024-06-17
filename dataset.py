@@ -22,7 +22,7 @@ tensor_to_pil = transforms.Compose([
 train_dataset = torchvision.datasets.MNIST(root = "./", train = True, download = True, transform = pil_to_tensor)
 
 if __name__ == "__main__":
-    image_tensor, label = train_dataet[0]
+    image_tensor, label = train_dataset[0]
 
     plt.figure(figsize=(5,5))
     pil_image = tensor_to_pil(image_tensor)
