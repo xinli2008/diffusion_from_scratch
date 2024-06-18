@@ -28,13 +28,15 @@ def save_combined_image(tensors, path, grid_size, img_size):
 
     combined_image.save(path)
 
-def backward_denoise(model,batch_x_t):
+def backward_denoise(model, batch_x_t, batch_cls):
     steps=[batch_x_t,]
 
     global alpha,alpha_cum_product,variance
 
     model=model.to(device)
     batch_x_t=batch_x_t.to(device)
+    batch_cls = batch_cls.to(device)
+
     alpha=alpha.to(device)
     alpha_cum_product=alpha_cum_product.to(device)
     variance=variance.to(device)
@@ -45,7 +47,7 @@ def backward_denoise(model,batch_x_t):
         for t in range(timestep-1,-1,-1):
             batch_t=torch.full((batch_x_t.size(0),),t).to(device) #[999,999,....]
             # 预测x_t时刻的噪音
-            batch_predict_noise_t=model(batch_x_t,batch_t)
+            batch_predict_noise_t=model(batch_x_t,batch_t, batch_cls)
             # 生成t-1时刻的图像
             shape=(batch_x_t.size(0),1,1,1)
             batch_mean_t=1/torch.sqrt(alpha[batch_t].view(*shape))*  \
@@ -65,7 +67,7 @@ def backward_denoise(model,batch_x_t):
 
 if __name__ == '__main__':
     # 加载状态字典
-    state_dict = torch.load("/mnt/diffusion_from_scratch/models/model_epoch_190.pt")
+    state_dict = torch.load("/mnt/diffusion_from_scratch/models/v1.1/model_epoch_200.pt")
     model = UNet(1)
 
     # 加载状态字典到模型
@@ -74,10 +76,15 @@ if __name__ == '__main__':
     # 生成噪音图
     batch_size = 10
     image_size = 48  # 确保定义 image_size
+
+    # xt
     batch_x_t = torch.randn(size=(batch_size, 1, image_size, image_size))  # (10, 1, 48, 48)
 
+    # 引导词
+    batch_cls = torch.arange(start = 0, end = 10, dtype = torch.long) 
+
     # 逐步去噪得到原图
-    steps = backward_denoise(model, batch_x_t)
+    steps = backward_denoise(model, batch_x_t, batch_cls)
 
     # 创建输出目录
     output_dir = "output_images"

@@ -2,7 +2,7 @@
 
 ## Introduction
 
-从0到1手写基于mnist手写数字数据集的diffusion模型复现
+从0到1手写基于mnist手写数字数据集的stable diffusion模型复现
 
 ## Preliminary
 - **扩散模型的前向传播过程**
@@ -17,14 +17,14 @@
 
 - **采样图片**
 
-![采样图片](./assets/final_combined_image.png)
+![采样图片](./assets/stable-diffusion-inference.png)
 
 - **loss**
 
-![training loss](./assets/diffusion-loss.png)
+![training loss](./assets/stable-diffusion-loss.png)
 
 
-## TODO
+## New features
 
 引入cross-attention来将cls-embedding放入unet中, 来实现可控图像生成, 即stable diffusion
 
