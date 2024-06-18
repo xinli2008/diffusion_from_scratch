@@ -7,7 +7,7 @@ from time_position_emb import TimePositionEmbedding
 from conv_block import ConvBlock
 
 class UNet(nn.Module):
-    def __init__(self, img_channel, channels=[64, 128, 256, 512, 1024], time_emb_size=256, query_size = 16, value_size = 16, cls_embedding_size = 32):
+    def __init__(self, img_channel, channels=[64, 128, 256, 512, 1024], time_emb_size=256, query_size = 16, value_size = 16, feed_forward_size = 32, cls_embedding_size = 32):
         super().__init__()
 
         channels=[img_channel]+channels
@@ -25,7 +25,7 @@ class UNet(nn.Module):
         # 每个encoder conv block增加一倍通道数
         self.enc_convs=nn.ModuleList()
         for i in range(len(channels)-1):
-            self.enc_convs.append(ConvBlock(channels[i],channels[i+1],time_emb_size, query_size, value_size, cls_embedding_size))
+            self.enc_convs.append(ConvBlock(channels[i],channels[i+1],time_emb_size, query_size, value_size, feed_forward_size, cls_embedding_size))
         
         # 每个encoder conv后马上缩小一倍图像尺寸,最后一个conv后不缩小
         self.maxpools=nn.ModuleList()
@@ -50,7 +50,7 @@ class UNet(nn.Module):
         # 每个decoder conv block减少一倍通道数
         self.dec_convs=nn.ModuleList()
         for i in range(len(channels)-2):
-            self.dec_convs.append(ConvBlock(channels[-i-1],channels[-i-2],time_emb_size, query_size, value_size, cls_embedding_size))   # 残差结构
+            self.dec_convs.append(ConvBlock(channels[-i-1],channels[-i-2],time_emb_size, query_size, value_size, feed_forward_size, cls_embedding_size))   # 残差结构
 
         # 还原通道数,尺寸不变
         self.output=nn.Conv2d(channels[1],img_channel,kernel_size=1,stride=1,padding=0)
@@ -86,7 +86,9 @@ class UNet(nn.Module):
             x=deconv(x)
             residual_x=residual.pop(-1)
             x=self.dec_convs[i](torch.cat((residual_x,x),dim=1),t_emb, cls_embedding)    # 残差用于纵深channel维
-        return self.output(x) # 还原通道数
+        
+        # 输出卷积用来还原通道数
+        return self.output(x) 
         
 if __name__=='__main__':
 
