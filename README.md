@@ -5,13 +5,10 @@
 从0到1手写基于mnist手写数字数据集的stable diffusion模型复现
 
 ## Preliminary
-- **扩散模型的前向传播过程**
+- **扩散模型的训练与采样过程**
 
-![diffusion forward process](./assets/diffusion-forward.png)
+![diffusion process](./assets/diffusion.png)
 
-- **扩散模型的采样过程**
-
-![diffusion sampling process](./assets/diffusion-sampling.png)
 
 ## Result
 
