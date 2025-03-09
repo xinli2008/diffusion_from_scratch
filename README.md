@@ -21,9 +21,13 @@
 ![training loss](./assets/stable-diffusion-loss.png)
 
 
-## New features
+## TODO List
 
-引入cross-attention来将cls-embedding放入unet中, 来实现可控图像生成, 即stable diffusion
+- [x] Introduce cross_attention to fuse image information and classification information
+- [ ] Implement inference code
+- [ ] Experiment with different model architectures, e.g., DiT, UViT, etc.
+- [ ] Experiment with different noise schedulers, e.g., DDIM, DPM-Solver, etc.
+- [ ] Add evaluation metrics such as FID and CLIP score
 
 ## Acknowledgements
 
