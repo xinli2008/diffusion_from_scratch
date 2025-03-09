@@ -138,5 +138,7 @@ debug.py
 sd-model-finetuned-lora
 MNIST
 saved_debug_images
-models
 output_images
+.vscode
+results/
+backup/

@@ -1,30 +1,33 @@
+import torch
+from torch.utils.data import Dataset
 import torchvision
 from torchvision import transforms
-import matplotlib.pyplot as plt
-from config import *
+import os
 
-# PIL图像转tensor
-pil_to_tensor = transforms.Compose([
-    transforms.Resize((image_size, image_size)),
-    ### transformer.totensor():
-    # 1、将图像转化为tensor, 将数据从0-255缩放到[0-1]之间。
-    # 2、将PIL或者numpy图像从(h,w,c)变化为(c,h,w)。
-    transforms.ToTensor()
-])
+class  MNISTDataset(Dataset):
+    def __init__(self, root = "./", train = True, image_size = 64):
+        self.transform = transforms.Compose([
+            transforms.Resize((image_size, image_size)),
+            transforms.ToTensor()
+        ])
 
-# tensor转化为PIL
-tensor_to_pil = transforms.Compose([
-    transforms.Lambda(lambda t: t*255),
-    transforms.Lambda(lambda t: t.type(torch.uint8)),
-    transforms.ToPILImage(),
-])
+        # Check if the dataset already exists in the specified path
+        raw_folder = os.path.join(root, "MNIST", "raw")
+        if not (os.path.exists(raw_folder) and os.listdir(raw_folder)):
+            download = True
+        else:
+            download = False
+            
+        self.dataset = torchvision.datasets.MNIST(
+            root=root,
+            train=train,
+            download=download,
+            transform=self.transform
+        )
 
-train_dataset = torchvision.datasets.MNIST(root = "./", train = True, download = True, transform = pil_to_tensor)
-
-if __name__ == "__main__":
-    image_tensor, label = train_dataset[0]
-
-    plt.figure(figsize=(5,5))
-    pil_image = tensor_to_pil(image_tensor)
-    plt.imshow(pil_image)
-    plt.show()
+    def __len__(self):
+        return len(self.dataset)
+    
+    def __getitem__(self, index):
+        image, label = self.dataset[index]
+        return image, label
