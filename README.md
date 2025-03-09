@@ -21,13 +21,16 @@
 ![training loss](./assets/stable-diffusion-loss.png)
 
 
-## New features
+## TODO List
 
-引入cross-attention来将cls-embedding放入unet中, 来实现可控图像生成, 即stable diffusion
+- [x] Introduce cross_attention to fuse image information and classification information
+- [ ] Implement inference code
+- [ ] Experiment with different model architectures, e.g., DiT, UViT, etc.
+- [ ] Experiment with different noise schedulers, e.g., DDIM, DPM-Solver, etc.
+- [ ] Add evaluation metrics such as FID and CLIP score
 
 ## Acknowledgements
 
 - [Pytorch-diffusion](https://github.com/owenliang/pytorch-diffusion)
 - [Stable Diffusion 原理介绍与源码分析](https://blog.csdn.net/Eric_1993/article/details/129600524?spm=1001.2014.3001.5501)
 - [扩散模型(Diffusion Model)详解：直观理解、数学原理、PyTorch 实现](https://zhouyifan.net/2023/07/07/20230330-diffusion-model/)
-
