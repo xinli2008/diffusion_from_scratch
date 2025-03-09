@@ -1,6 +1,3 @@
-import sys
-sys.path.remove('/home/lixin/data_97/code_workspace/Real-ESRGAN')
-sys.path.append("/data/lixin/practice/diffusion_from_scratch")
 import os
 import torch
 import torch.nn as nn
