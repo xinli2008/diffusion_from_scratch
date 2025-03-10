@@ -5,9 +5,9 @@
 从0到1手写基于mnist手写数字数据集的stable diffusion模型复现
 
 ## Preliminary
-- **扩散模型的训练与采样过程**
+- **DDPM forward and denosing process**
 
-![diffusion process](./assets/diffusion.png)
+![DDPM forward and denosing process](./assets/ddpm.png)
 
 
 ## Result
