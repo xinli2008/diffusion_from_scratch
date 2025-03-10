@@ -109,7 +109,7 @@ class UnetModel(nn.Module):
         # NOTE: 1x1 conv 
         self.output_conv = nn.Conv2d(channels[1], input_channel, kernel_size=1, stride=1, padding=0)
 
-    def forward(self, input_image, input_timestep, input_classification_label):
+    def forward(self, x, input_timestep, input_classification_label):
         
         input_time_embedding = self.time_embedding(input_timestep)
         input_cls_embedding = self.cls_embedding(input_classification_label)
@@ -117,15 +117,15 @@ class UnetModel(nn.Module):
         # NOTE: unet encoder
         residual = []
         for i, conv in enumerate(self.unet_encoder):
-            x = conv(input_image, input_time_embedding, input_cls_embedding)
-            if i!= len(self.unet_encoder) -1 :
+            x = conv(x, input_time_embedding, input_cls_embedding)
+            if i != len(self.unet_encoder) - 1:
                 residual.append(x)
-                input_image = self.maxpools[i](x)
+                x = self.maxpools[i](x)
         
         # NOTE: unet decoder
         for i, deconv in enumerate(self.dwconv):
             x = deconv(x)
             residual_info = residual.pop(-1)
-            x = self.unet_decoder[i](torch.cat([residual_info, x], dim = 1), input_time_embedding, input_cls_embedding)
+            x = self.unet_decoder[i](torch.cat([residual_info, x], dim=1), input_time_embedding, input_cls_embedding)
 
         return self.output_conv(x)

@@ -30,12 +30,9 @@ class DDPMScheduler:
 
         self.alpha = 1 - betas
         self.alpha_cum_product = torch.cumprod(self.alpha, dim = 0)
-        self.sqrt_alpha_cum_product = torch.sqrt(self.alpha_cum_product)
-        self.sqrt_one_minus_alpha_cum_product = torch.sqrt(1 - self.alpha_cum_product)
         self.alpha_cum_product_prev = torch.cat((torch.tensor([1.0]), self.alpha_cum_product[:-1]), dim = -1)
         self.variance = (1 - self.alpha) * (1 - self.alpha_cum_product_prev) / (1 - self.alpha_cum_product)
         
-    
     def q_sample(self, batch_x, batch_t):
         r"""
         Samples a noisy version of the input data at a given timestep.
@@ -49,38 +46,43 @@ class DDPMScheduler:
                 - x_noisy (torch.Tensor): Noisy version of the input data.
                 - noise (torch.Tensor): The random noise added to the input data.
         """
-        device = batch_x.device
-        sqrt_alpha_cum_product = self.sqrt_alpha_cum_product.to(device)[batch_t].view(batch_x.shape[0], 1, 1, 1)
-        sqrt_one_minus_alpha_cum_product = self.sqrt_one_minus_alpha_cum_product.to(device)[batch_t].view(batch_x.shape[0], 1, 1, 1)
-        # Sample noise that we'll add to the image
+        device = batch_x.device        
+        
+        # NOTE: Sample noise that we'll add to the image
         noise = torch.randn_like(batch_x)
-        x_noisy = sqrt_alpha_cum_product * batch_x + sqrt_one_minus_alpha_cum_product * noise
+
+        batch_alpha_cum_product = self.alpha_cum_product.to(device)[batch_t].view(batch_x.shape[0], 1, 1, 1)
+        x_noisy = torch.sqrt(batch_alpha_cum_product) * batch_x + torch.sqrt(1 - batch_alpha_cum_product) * noise
+        
         return x_noisy, noise
     
-    def denoise_sample(self, denoising_model, batch_xt, batch_cls):
+    def denoise_sample(self, denoising_model, batch_x_t, batch_cls):
         r"""
         Denoise a batch of samples using the provided denoising model.
         """
         NUM_TIMESTEPS = 1000
-        denoised_images = [batch_xt]
-
+        denoised_images = [batch_x_t,]
         with torch.no_grad():
             for t in range(NUM_TIMESTEPS - 1, -1, -1):
-                current_timestep = torch.full((batch_xt.size(0)), t)
-                shape = (batch_xt.size(0), 1, 1, 1)
+                current_timestep = torch.full((batch_x_t.size(0),), t).to(batch_x_t.device)
+                shape = (batch_x_t.size(0), 1, 1, 1)
 
                 # predict noise for the current timestep
-                predicted_noise = denoising_model(batch_xt, current_timestep, batch_cls)
+                predicted_noise = denoising_model(batch_x_t, current_timestep, batch_cls)
 
                 # Generate random noise for adding variability
-                random_noise = torch.rand_like(batch_xt)
+                random_noise = torch.randn_like(batch_x_t)
                 
-                batch_mean_t = 1/ self.sqrt_alpha_cum_product[current_timestep].view(*shape) * \
-                                [
-                                    batch_xt - ((1 - self.alpha[current_timestep].view(*shape)) / self.sqrt_one_minus_alpha_cum_product[current_timestep].view(*shape) * predicted_noise)
-                                ] 
+                batch_mean_t = (1/torch.sqrt(self.alpha.to(batch_x_t.device)[current_timestep].view(*shape))) * \
+                                (
+                                    batch_x_t - ((1 - self.alpha.to(batch_x_t.device)[current_timestep].view(*shape)) / torch.sqrt(1 - self.alpha_cum_product.to(batch_x_t.device)[current_timestep].view(*shape)) * predicted_noise)
+                                ) 
                 if t != 0:
-                    batch_xt = batch_mean_t + random_noise * torch.sqrt(self.variance[current_timestep].view(*shape))
-                denoised_images.append(batch_xt)
-            
-            return denoised_images
+                    batch_x_t = batch_mean_t + random_noise * torch.sqrt(self.variance.to(batch_x_t.device)[current_timestep].view(*shape))
+                else:
+                    batch_x_t = batch_mean_t
+                
+                batch_x_t = torch.clamp(batch_x_t, -1.0, 1.0).detach()
+                denoised_images.append(batch_x_t)
+
+        return denoised_images
