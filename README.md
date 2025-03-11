@@ -28,6 +28,8 @@
 - [ ] Experiment with different model architectures, e.g., DiT, UViT, etc.
 - [ ] Experiment with different noise schedulers, e.g., DDIM, DPM-Solver, etc.
 - [ ] Add evaluation metrics such as FID and CLIP score
+- [ ] Experiment with different datasets, e.g., text2image datasets, etc.
+- [ ] Experiment with different training methods, e.g., LoRA, etc.
 
 ## Acknowledgements
 
