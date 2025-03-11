@@ -24,7 +24,7 @@
 ## TODO List
 
 - [x] Introduce cross_attention to fuse image information and classification information
-- [ ] Implement inference code
+- [x] Implement inference code
 - [ ] Experiment with different model architectures, e.g., DiT, UViT, etc.
 - [ ] Experiment with different noise schedulers, e.g., DDIM, DPM-Solver, etc.
 - [ ] Add evaluation metrics such as FID and CLIP score
