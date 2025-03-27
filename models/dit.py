@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from utils import PatchEmbed
-from time_embedding import TimePositionEmbedding
+from .utils import PatchEmbed
+from .time_embedding import TimePositionEmbedding
 
 def adaptive_scale_and_shift(x, scale, shift):
     return x * ( 1 + scale.unsqueeze(1)) + shift.unsqueeze(1)
@@ -108,6 +108,7 @@ class DiT(nn.Module):
         self.dit_blocks = nn.ModuleList()
         for i in range(num_dit_blocks):
             self.dit_blocks.append(DitBlock(embedding_size, num_heads, mlp_ratio))
+        self._init_weights()
 
     def unpatchify(self, x):
         out_channels = self.out_channels
@@ -120,8 +121,20 @@ class DiT(nn.Module):
         imgs = x.reshape(shape = (x.shape[0], out_channels, h * patch_h, w * patch_w))
         return imgs
 
+    def _init_weights(self):
+        # NOTE: zero init adaLN modulation layers to make output = x
+        for blk in self.dit_blocks:
+            nn.init.constant_(blk.adaLN[-1].weight, 0)
+            nn.init.constant_(blk.adaLN[-1].bias, 0)
+
+        # NOTE: zero init output layers
+        nn.init.constant_(self.final_layer.adaLN_modulation[-1].weight, 0)
+        nn.init.constant_(self.final_layer.adaLN_modulation[-1].bias, 0)
+        nn.init.constant_(self.final_layer.linear.weight, 0)
+        nn.init.constant_(self.final_layer.linear.bias, 0)
+
     def forward(self, x, t, cond):
-        x = self.patch_emb(x) + self.position_emb
+        x = self.patch_emb(x) + self.position_emb.to(x.device)
         t = self.time_emb(t)
         cond = self.cls_emb(cond)
 
