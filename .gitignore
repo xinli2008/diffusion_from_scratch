@@ -140,5 +140,6 @@ MNIST
 saved_debug_images
 output_images
 .vscode
-results/
+results/*
 backup/
+data/*
