@@ -81,8 +81,7 @@ class DDPMScheduler:
                     batch_x_t = batch_mean_t + random_noise * torch.sqrt(self.variance.to(batch_x_t.device)[current_timestep].view(*shape))
                 else:
                     batch_x_t = batch_mean_t
-                
-                batch_x_t = torch.clamp(batch_x_t, -1.0, 1.0).detach()
+
                 denoised_images.append(batch_x_t)
 
         return denoised_images
