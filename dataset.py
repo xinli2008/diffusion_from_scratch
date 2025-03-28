@@ -3,22 +3,34 @@ from torch.utils.data import Dataset
 import torchvision
 from torchvision import transforms
 import os
+from PIL import Image
+from torch.utils.data import DataLoader
 
-class  MNISTDataset(Dataset):
-    def __init__(self, root = "./", train = True, image_size = 64):
+class CustomDataset(Dataset):
+    def __init__(self, root="./", dataset_type="MNIST", train=True, image_size=256):
+        if dataset_type == "MNIST":
+            normalize_mean_std = (0.5,), (0.5,)
+            dataset_class = torchvision.datasets.MNIST
+            raw_folder = os.path.join(root, "MNIST", "raw")
+        elif dataset_type == "CIFAR-10":
+            normalize_mean_std = (0.5, 0.5, 0.5), (0.5, 0.5, 0.5)
+            dataset_class = torchvision.datasets.CIFAR10
+            raw_folder = os.path.join(root, "CIFAR10", "raw")
+        else:
+            raise ValueError("Unsupported dataset type. Choose 'MNIST' or 'CIFAR10'.")
+
         self.transform = transforms.Compose([
             transforms.Resize((image_size, image_size)),
-            transforms.ToTensor()
+            transforms.ToTensor(),
+            transforms.Normalize(*normalize_mean_std),
         ])
 
-        # Check if the dataset already exists in the specified path
-        raw_folder = os.path.join(root, "MNIST", "raw")
-        if not (os.path.exists(raw_folder) and os.listdir(raw_folder)):
+        if not os.path.exists(raw_folder):
             download = True
         else:
             download = False
-            
-        self.dataset = torchvision.datasets.MNIST(
+
+        self.dataset = dataset_class(
             root=root,
             train=train,
             download=download,
