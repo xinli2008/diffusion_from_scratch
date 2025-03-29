@@ -25,10 +25,10 @@
 
 - [x] Introduce cross_attention to fuse image information and classification information
 - [x] Implement inference code
-- [ ] Experiment with different model architectures, e.g., DiT, UViT, etc.
-- [ ] Experiment with different noise schedulers, e.g., DDIM, DPM-Solver, etc.
+- [x] Experiment with different model architectures, e.g., Unet, DiT, UViT, etc.
+- [ ] Experiment with different noise schedulers, e.g., DDPM, DDIM, DPM-Solver, etc.
 - [ ] Add evaluation metrics such as FID and CLIP score
-- [ ] Experiment with different datasets, e.g., text2image datasets, etc.
+- [ ] Experiment with different datasets, e.g., MNIST, CIFAR-10, text2image datasets, etc.
 - [ ] Experiment with different training methods, e.g., LoRA, etc.
 
 ## Acknowledgements
