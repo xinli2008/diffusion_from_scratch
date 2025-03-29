@@ -5,10 +5,12 @@ import math
 import warnings
 
 class PatchEmbed(nn.Module):
-    def __init__(self, patch_size, input_channels, hidden_states):
+    def __init__(self, image_size, patch_size, input_channels, hidden_states):
         super(PatchEmbed, self).__init__()
         self.projection = nn.Conv2d(input_channels, hidden_states, patch_size, patch_size)
         
+        assert image_size[0] % patch_size[0] == 0 and image_size[1] % patch_size[1] == 0, f"image_size {image_size} must be divisble by patch size"
+        self.num_patches = (image_size[0] // patch_size[0]) * (image_size[1] // patch_size[1])
 
     def forward(self, x):
         hidden_states = self.projection(x)    # [b, hidden_states, patch_size, patch_size]

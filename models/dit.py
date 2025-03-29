@@ -1,11 +1,64 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import numpy as np
 from .utils import PatchEmbed
 from .time_embedding import TimePositionEmbedding
 
 def adaptive_scale_and_shift(x, scale, shift):
     return x * ( 1 + scale.unsqueeze(1)) + shift.unsqueeze(1)
+
+#################################################################################
+#                   Sine/Cosine Positional Embedding Functions                  #
+#################################################################################
+# https://github.com/facebookresearch/mae/blob/main/util/pos_embed.py
+
+def get_2d_sincos_pos_embed(embed_dim, grid_size, cls_token=False, extra_tokens=0):
+    """
+    grid_size: int of the grid height and width
+    return:
+    pos_embed: [grid_size*grid_size, embed_dim] or [1+grid_size*grid_size, embed_dim] (w/ or w/o cls_token)
+    """
+    grid_h = np.arange(grid_size, dtype=np.float32)
+    grid_w = np.arange(grid_size, dtype=np.float32)
+    grid = np.meshgrid(grid_w, grid_h)  # here w goes first
+    grid = np.stack(grid, axis=0)
+
+    grid = grid.reshape([2, 1, grid_size, grid_size])
+    pos_embed = get_2d_sincos_pos_embed_from_grid(embed_dim, grid)
+    if cls_token and extra_tokens > 0:
+        pos_embed = np.concatenate([np.zeros([extra_tokens, embed_dim]), pos_embed], axis=0)
+    return pos_embed
+
+def get_2d_sincos_pos_embed_from_grid(embed_dim, grid):
+    assert embed_dim % 2 == 0
+
+    # use half of dimensions to encode grid_h
+    emb_h = get_1d_sincos_pos_embed_from_grid(embed_dim // 2, grid[0])  # (H*W, D/2)
+    emb_w = get_1d_sincos_pos_embed_from_grid(embed_dim // 2, grid[1])  # (H*W, D/2)
+
+    emb = np.concatenate([emb_h, emb_w], axis=1) # (H*W, D)
+    return emb
+
+def get_1d_sincos_pos_embed_from_grid(embed_dim, pos):
+    """
+    embed_dim: output dimension for each position
+    pos: a list of positions to be encoded: size (M,)
+    out: (M, D)
+    """
+    assert embed_dim % 2 == 0
+    omega = np.arange(embed_dim // 2, dtype=np.float64)
+    omega /= embed_dim / 2.
+    omega = 1. / 10000**omega  # (D/2,)
+
+    pos = pos.reshape(-1)  # (M,)
+    out = np.einsum('m,d->md', pos, omega)  # (M, D/2), outer product
+
+    emb_sin = np.sin(out) # (M, D/2)
+    emb_cos = np.cos(out) # (M, D/2)
+
+    emb = np.concatenate([emb_sin, emb_cos], axis=1)  # (M, D)
+    return emb
 
 class MultiHeadSelfAttention(nn.Module):
     r"""Multi-Head Self-attention Module"""
@@ -50,7 +103,7 @@ class FinalLayer(nn.Module):
     """Final Layer in Diffusion Transformer"""
     def __init__(self, embedding_size, patch_size, out_channels):
         super().__init__()
-        self.final_norm = nn.LayerNorm(embedding_size, eps = 1e-6)
+        self.final_norm = nn.LayerNorm(embedding_size, eps = 1e-6, elementwise_affine=False)
         self.linear = nn.Linear(embedding_size, patch_size[0] * patch_size[1] * out_channels, bias = True)
         self.adaLN_modulation = nn.Sequential(
             nn.SiLU(),
@@ -67,9 +120,9 @@ class DitBlock(nn.Module):
     def __init__(self, embedding_size, num_heads, mlp_ratio = 4.0):
         super(DitBlock, self).__init__()
 
-        self.norm1 = nn.LayerNorm(embedding_size, eps = 1e-6)
+        self.norm1 = nn.LayerNorm(embedding_size, eps = 1e-6, elementwise_affine=False)
         self.attn = MultiHeadSelfAttention(embedding_size, num_heads)
-        self.norm2 = nn.LayerNorm(embedding_size, eps = 1e-6)
+        self.norm2 = nn.LayerNorm(embedding_size, eps = 1e-6, elementwise_affine=False)
         self.mlp = nn.Sequential(
             nn.Linear(embedding_size, embedding_size * mlp_ratio, bias = True),
             nn.SiLU(),
@@ -91,15 +144,14 @@ class DiT(nn.Module):
     def __init__(self, image_size, patch_size, input_channel, embedding_size, num_labels, num_dit_blocks, num_heads, mlp_ratio = 4):
         super(DiT, self).__init__()
         self.out_channels = input_channel
-        self.patch_emb = PatchEmbed(patch_size, input_channel, embedding_size)
+        self.patch_emb = PatchEmbed(image_size, patch_size, input_channel, embedding_size)
         self.cls_emb = nn.Embedding(num_embeddings = num_labels, embedding_dim = embedding_size)
         self.time_emb = nn.Sequential(TimePositionEmbedding(embedding_size),
                                       nn.Linear(embedding_size, embedding_size),
                                       nn.GELU(),
                                       nn.Linear(embedding_size, embedding_size))
         
-
-        assert image_size[0] % patch_size[0] == 0 and image_size[1] % patch_size[1] == 0, f"image_size {image_size} must be divisble by patch size"
+        
         self.patch_size = patch_size
         self.num_patches = (image_size[0] // patch_size[0]) * (image_size[1] // patch_size[1])
         self.position_emb = nn.Parameter(torch.zeros(1, self.num_patches, embedding_size), requires_grad = False)
@@ -132,6 +184,30 @@ class DiT(nn.Module):
         nn.init.constant_(self.final_layer.adaLN_modulation[-1].bias, 0)
         nn.init.constant_(self.final_layer.linear.weight, 0)
         nn.init.constant_(self.final_layer.linear.bias, 0)
+
+        # Initialize transformer layers:
+        def _basic_init(module):
+            if isinstance(module, nn.Linear):
+                torch.nn.init.xavier_uniform_(module.weight)
+                if module.bias is not None:
+                    nn.init.constant_(module.bias, 0)
+        self.apply(_basic_init)
+
+        # Initialize (and freeze) pos_embed by sin-cos embedding:
+        pos_embed = get_2d_sincos_pos_embed(self.position_emb.shape[-1], int(self.patch_emb.num_patches ** 0.5))
+        self.position_emb.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
+
+        # Initialize patch_embed like nn.Linear (instead of nn.Conv2d):
+        w = self.patch_emb.projection.weight.data
+        nn.init.xavier_uniform_(w.view([w.shape[0], -1]))
+        nn.init.constant_(self.patch_emb.projection.bias, 0)
+
+        # Initialize label embedding table:
+        nn.init.normal_(self.cls_emb.weight, std=0.02)
+
+        # Initialize timestep embedding MLP:
+        nn.init.normal_(self.time_emb[1].weight, std=0.02)
+        nn.init.normal_(self.time_emb[-1].weight, std=0.02)
 
     def forward(self, x, t, cond):
         x = self.patch_emb(x) + self.position_emb.to(x.device)
