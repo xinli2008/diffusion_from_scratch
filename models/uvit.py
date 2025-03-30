@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from utils import *
-from time_embedding import TimePositionEmbedding
+from .utils import *
+from .time_embedding import TimePositionEmbedding
 import einops
 
 if hasattr(torch.nn.functional, "scaled_dot_product_attention"):
@@ -176,6 +176,25 @@ class UVit(nn.Module):
         x = self.unpatchify(x)
         x = self.final_layer(x)
         return x
+
+def UVit_small(**kwargs):
+    return UVit(patch_size = (8, 8), embedding_dim = 512, depth = 12, num_heads = 8, **kwargs)
+
+def UVit_base(**kwargs):
+    return UVit(patch_size = (8, 8), embedding_dim = 768, depth = 16, num_heads = 12, **kwargs)
+
+def Uvit_large(**kwargs):
+    return UVit(patch_size = (8, 8), embedding_dim = 1024, depth = 20, num_heads = 16, **kwargs)
+
+def Uvit_huge(**kwargs):
+    return UVit(patch_size = (8, 8), embedding_dim = 1152, depth = 28, num_heads = 16, **kwargs)
+
+Uvit_models = {
+    "UVit_small": UVit_small,
+    "UVit_base": UVit_base,
+    "Uvit_large": Uvit_large,
+    "Uvit_huge": Uvit_huge
+}
 
 if __name__ == "__main__":
     uvit_model = UVit(img_size=(224, 224), in_channels=3, num_class=10)
