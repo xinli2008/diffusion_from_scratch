@@ -4,41 +4,47 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from dataset import MNISTDataset
+from dataset import CustomDataset
 from diffusion.ddpm import DDPMScheduler
 from models.unet import UnetModel
+from models.dit import DiT_models
+from models.uvit import Uvit_models
 import argparse
 from tqdm import tqdm
+
+def get_dataset_channels(dataset_name):
+    channels = {
+        "MNIST": 1,
+        "CIFAR-10": 3,
+    }
+    return channels.get(dataset_name)
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Train a mini diffusion model on custom dataset")
 
     # Training parameters
-    parser.add_argument("--max_epoch", type=int, default=100, 
+    parser.add_argument("--max_epoch", type=int, default=2000, 
                         help="Maximum number of epochs to train the model. Default is 50.")
-    parser.add_argument("--learning_rate", type=float, default=0.001, 
+    parser.add_argument("--learning_rate", type=float, default=0.0005, 
                         help="Learning rate for the optimizer. Default is 0.001.")
-    parser.add_argument("--batch_size", type=int, default=64, 
+    parser.add_argument("--batch_size", type=int, default=512, 
                         help="Number of samples per batch during training. Default is 64.")
-    parser.add_argument("--result_dir", type=str, default="results/NNIST_train_20250308", 
+    parser.add_argument("--result_dir", type=str, default="results/CIFAR_train_20250330", 
                         help="Directory to save training results, including models and logs. Default is 'results'.")
-    parser.add_argument("--model_save_interval", type=int, default=10, 
+    parser.add_argument("--model_save_interval", type=int, default=100, 
                         help="Interval (in epochs) at which to save the model. Default is 10.")
-    
     # Model parameters
-    parser.add_argument("--model_arch", type=str, default="unet", choices=["unet", "dit", "uvit"],
+    parser.add_argument("--model_arch", type=str, default="dit", choices=["unet", "dit", "uvit"],
                         help="Architecture of the model to use. ")
-    parser.add_argument("--in_channels", type=int, default=1, 
-                        help="Number of input channels (e.g., 1 for grayscale images, 3 for RGB). Default is 1.")
 
     # Dataset parameters
-    parser.add_argument("--dataset_name", type=str, default="MNIST", choices=["MNIST"], 
-                        help="Name of the dataset to use. Currently, only 'MNIST' is supported. Default is 'MNIST'.")
+    parser.add_argument("--dataset_name", type=str, default="CIFAR-10", choices=["MNIST", "CIFAR-10"], 
+                        help="Name of the dataset to use. Default is 'MNIST'.")
     parser.add_argument("--dataset_path", type=str, default="./data", 
                         help="Path where the dataset will be stored or is already located. Default is './data'.")
     parser.add_argument("--num_workers", type=int, default=8, 
                         help="Number of worker threads for data loading. Default is 8.")
-    parser.add_argument("--image_size", type=int, default=64, 
+    parser.add_argument("--image_size", type=int, default=32, 
                         help="Size of the input images (height and width). Default is 64.")
 
     # Diffusion parameters
@@ -73,7 +79,7 @@ def train_one_epoch(model, dataloader, diffusion_scheduler, timestep, optimizer,
     dataloader_tqdm = tqdm(dataloader, desc=f"Epoch {epoch}", leave=False)
 
     for step, (batch_x, batch_cls) in enumerate(dataloader_tqdm):
-        batch_x = batch_x.to(device) * 2 - 1
+        batch_x = batch_x.to(device)
         batch_cls = batch_cls.to(device)
 
         # Sample a random timestep for each image
@@ -109,21 +115,21 @@ if __name__ == "__main__":
         os.makedirs(args.dataset_path)
     writer = SummaryWriter(log_dir=args.log_save_dir)
 
+    in_channels = get_dataset_channels(args.dataset_name)
+    if in_channels is None:
+        raise ValueError(f"Unexpected dataset type: {args.dataset_name}")
+    
     if args.model_arch == "unet":
-        model = UnetModel(args.in_channels).to(args.device)
+        model = UnetModel(in_channels).to(args.device)
     elif args.model_arch == "dit":
-        pass
+        model = DiT_models["DiT-B/8"](image_size = (args.image_size, args.image_size), input_channel = in_channels, num_labels = 10).to(args.device)
     elif args.model_arch == "uvit":
-        pass
+        model = Uvit_models["UVit_base"](img_size = (args.image_size, args.image_size), in_channels = in_channels, num_classes = 10).to(args.device)
     else:
         raise ValueError(f"unexpected model architecture for {args.model_arch}")
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
-    
-    if args.dataset_name == "MNIST":
-        train_dataset = MNISTDataset(root=args.dataset_path, train=True, image_size = args.image_size)
-    else:
-        raise ValueError(f"unexcepted dataset type for {args.dataset_name}")
+    train_dataset = CustomDataset(root=args.dataset_path, dataset_type = args.dataset_name, train=True, image_size = args.image_size)
     
     diffusion_dataloader = DataLoader(dataset=train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
     diffusion_scheduler = DDPMScheduler(args.beta_schedule, args.noise_steps, args.beta_start, args.beta_end, args.cosine_s)
