@@ -38,7 +38,7 @@ A PyTorch implementation of diffusion models built from scratch, featuring:
 
 - **result on cifar-10 dataset**
 
-![inference](./assets/diffusion_inference_cifar10.png)
+![inference](./assets/dit_cifar10.png)
 
 - **loss**
 
