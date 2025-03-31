@@ -5,21 +5,11 @@ from .utils import *
 from .time_embedding import TimePositionEmbedding
 import einops
 
-if hasattr(torch.nn.functional, "scaled_dot_product_attention"):
-    ATTENTION_MODE = "flash"
-else:
-    try:
-        import xformers
-        import xformers.ops
-        ATTENTION_MODE = "xformers" 
-    except:
-        ATTENTION_MODE = "math"
-print(f"current attention mode is {ATTENTION_MODE}")
-
 class Attention(nn.Module):
-    def __init__(self, hidden_states, num_heads, qkv_bias, qk_scale, attn_drop = 0., proj_drop = 0.):
+    def __init__(self, hidden_states, num_heads, qkv_bias, qk_scale, attn_drop = 0., proj_drop = 0., attention_mode = "math"):
         super(Attention, self).__init__()
         self.num_heads = num_heads
+        self.attention_mode = attention_mode
 
         assert hidden_states % num_heads ==0, "num_heads should be divisable by hidden states"
         self.head_dim = hidden_states // num_heads
@@ -34,25 +24,25 @@ class Attention(nn.Module):
         B, L, C = x.shape
         qkv = self.qkv(x)
 
-        if ATTENTION_MODE == "math":
+        if self.attention_mode == "math":
             qkv = einops.rearrange(qkv, "B L (K H D) -> K B H L D", K = 3, H = self.num_heads)
             q, k, v = qkv[0], qkv[1], qkv[2]
             attn = torch.matmul(q, k.transpose(-2, -1)) * self.scale
             attn = F.softmax(attn, dim = -1)
             attn = self.attn_drop(attn)
             x = torch.matmul(attn, v).transpose(1, 2).reshape(B, L, C)
-        elif ATTENTION_MODE == "flash":
+        elif self.attention_mode == "flash":
             qkv = einops.rearrange(qkv, "B L (K H D) -> K B H L D", K = 3, H = self.num_heads).float()
             q, k, v = qkv[0], qkv[1], qkv[2]
             x = torch.nn.functional.scaled_dot_product_attention(q, k, v)
             x = einops.rearrange(x, "B H L D -> B L (H D)", H = self.num_heads)
-        elif ATTENTION_MODE == "xformers":
+        elif self.attention_mode == "xformers":
             qkv = einops.rearrange(qkv, 'B L (K H D) -> K B L H D', K=3, H=self.num_heads)
             q, k, v = qkv[0], qkv[1], qkv[2]  # B L H D
             x = xformers.ops.memory_efficient_attention(q, k, v)
             x = einops.rearrange(x, 'B L H D -> B L (H D)', H=self.num_heads)
         else:
-            raise ValueError(f"unexcepted ATTENTION_MODE for {ATTENTION_MODE}")
+            raise ValueError(f"unexcepted ATTENTION_MODE for {self.attention_mode}")
         
         x = self.proj(x)
         x = self.proj_drop(x)
@@ -60,10 +50,11 @@ class Attention(nn.Module):
 
 class UVitBlock(nn.Module):
     def __init__(self, embedding_dim, num_heads, mlp_ratio, qkv_bias, qk_scale, act_layer = nn.GELU(),
-                 norm_layer = nn.LayerNorm, skip = False, use_checkpoint = False):
+                 norm_layer = nn.LayerNorm, skip = False, attention_mode = "math", use_checkpoint = False):
         super(UVitBlock, self).__init__()
+        self.attention_mode = attention_mode
         self.norm1 = norm_layer(embedding_dim)
-        self.attn = Attention(embedding_dim, num_heads, qkv_bias, qk_scale, attn_drop=0., proj_drop=0.)
+        self.attn = Attention(embedding_dim, num_heads, qkv_bias, qk_scale, attn_drop=0., proj_drop=0., attention_mode = self.attention_mode)
         self.norm2 = norm_layer(embedding_dim)
         self.mlp = nn.Sequential(
             nn.Linear(embedding_dim, embedding_dim * mlp_ratio),
@@ -71,7 +62,7 @@ class UVitBlock(nn.Module):
             nn.Linear(embedding_dim * mlp_ratio, embedding_dim)
         )
         self.skip_linear = nn.Linear(2 * embedding_dim, embedding_dim) if skip else None 
-    
+        
     def forward(self, x, skip_info = None):
         if self.skip_linear:
             x = self.skip_linear(torch.cat([x, skip_info], dim = -1))
@@ -82,12 +73,25 @@ class UVitBlock(nn.Module):
 class UVit(nn.Module):
     "U-Vit Backbone"
     def __init__(self, img_size = (224, 224), patch_size = (16, 16), in_channels = 3, embedding_dim = 768, depth = 12, num_heads = 12, mlp_ratio = 4,
-                 qkv_bias = False, qk_scale = None, norm_layer = nn.LayerNorm, num_class = -1, final_conv = True, skip = True):
+                 qkv_bias = False, qk_scale = None, norm_layer = nn.LayerNorm, num_class = -1, final_conv = True):
         super(UVit, self).__init__()
         self.embedding_dim = embedding_dim
         self.num_class = num_class
         self.in_channels = in_channels
         self.patch_size = patch_size
+
+        # ATTENTION_MODE
+        if hasattr(torch.nn.functional, "scaled_dot_product_attention"):
+            ATTENTION_MODE = "flash"
+        else:
+            try:
+                import xformers
+                import xformers.ops
+                ATTENTION_MODE = "xformers" 
+            except:
+                ATTENTION_MODE = "math"
+        print(f"current attention mode is {ATTENTION_MODE}")
+        self.attention_mode = ATTENTION_MODE
 
         assert img_size[0] % patch_size[0] == 0 and img_size[1] % patch_size[1] == 0, "patch size shoule be divisable by image size"
         self.patch_emb = PatchEmbed(img_size, patch_size, in_channels, embedding_dim)
@@ -111,7 +115,7 @@ class UVit(nn.Module):
             for _ in range(depth // 2)
         ])
 
-        self.mid_block = UVitBlock(embedding_dim, num_heads, mlp_ratio, qkv_bias, qk_scale, skip = False)
+        self.mid_block = UVitBlock(embedding_dim, num_heads, mlp_ratio, qkv_bias, qk_scale, skip = False, attention_mode = self.attention_mode)
 
         self.out_blocks = nn.ModuleList()
         self.out_blocks = nn.ModuleList([
